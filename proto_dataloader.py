@@ -14,14 +14,12 @@ class MelSpeakerID(Dataset):
         self.audio_path_and_speaker_id = self._get_metadata(meta_file, root_dir)
 
     def __getitem__(self, idx):
-        wav, sr = librosa.core.load(self.audio_path_and_speaker_id[idx])
+        wav, sr = librosa.core.load(self.audio_path_and_speaker_id[idx][0])
+        speaker_id = self.audio_path_and_speaker_id[idx][1]
 
         wav = wav / np.abs(wav).max() * 0.999
 
         # already trimed silence
-
-        constant_values = 0.
-        out_dtype = np.float32
 
         # preemphasis
         wav = signal.lfilter([1], [1, -0.97], wav)
@@ -39,10 +37,10 @@ class MelSpeakerID(Dataset):
 
         mel_spec = S.astype(np.float32)
 
-        return mel_spec
+        return torch.from_numpy(mel_spec), int(speaker_id.strip())
 
     def __len__(self):
-        pass
+        return len(self.audio_path_and_speaker_id)
 
     def _get_metadata(self, meta_file, root_dir):
         with open(os.path.join(root_dir, meta_file), encoding='utf-8') as f:
@@ -56,9 +54,31 @@ class MelSpeakerID(Dataset):
 
         return metadata
 
+class MelCollate():
+    def __init__(self):
+        pass
+    def __call__(self, batch):
+
+        # include mel padded
+        mel_padded = torch.zeros(len(batch), 80, 236)
+        mel_padded -= 4
+
+        for i in range(len(batch)):
+            mel = batch[i][0]
+            mel_padded[i, :, :mel.size(1)] = mel
+
+        return mel_padded, [x[1] for x in batch]
+
 
 if __name__ == '__main__':
     root_dir = '../datasets/NIKL_pre/'
     meta_file = 'metadata_train.csv'
-
     dataloader = MelSpeakerID(meta_file, root_dir)
+    collate_fn = MelCollate()
+
+    dataloader = DataLoader(dataloader, batch_size=4,
+                            shuffle=True, num_workers=1, collate_fn=collate_fn)
+
+    for i_batch, x in enumerate(dataloader):
+        print(x)
+        break
