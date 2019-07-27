@@ -183,8 +183,8 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
 if __name__ == "__main__":
     print("Run Y = tsne.tsne(X, no_dims, perplexity) to perform t-SNE on your dataset.")
     print("Running example on 2,500 MNIST digits...")
-    X = np.loadtxt("mnist2500_X.txt")
-    labels = np.loadtxt("mnist2500_labels.txt")
+    X = np.load('./infer/test_f_vec.npy')
+    labels = np.load('./infer/test_f_label.npy')
 
     import time
     start_time = time.time()
@@ -192,4 +192,4 @@ if __name__ == "__main__":
     print("--- %s seconds ---" % (time.time() - start_time))
 
     pylab.scatter(Y[:, 0], Y[:, 1], 20, labels)
-    pylab.show()
+    pylab.savefig('./infer/test.png')

@@ -9,8 +9,8 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class MelSpeakerID(Dataset):
-    def __init__(self, meta_file, root_dir):
-
+    def __init__(self, meta_file, root_dir, speaker_id_list=None):
+        self.speaker_id_list = speaker_id_list
         self.audio_path_and_speaker_id = self._get_metadata(meta_file, root_dir)
 
     def __getitem__(self, idx):
@@ -43,16 +43,30 @@ class MelSpeakerID(Dataset):
         return len(self.audio_path_and_speaker_id)
 
     def _get_metadata(self, meta_file, root_dir):
-        with open(os.path.join(root_dir, meta_file), encoding='utf-8') as f:
-            metadata = f.readlines()
+        if self.speaker_id_list is None:
+            with open(os.path.join(root_dir, meta_file), encoding='utf-8') as f:
+                metadata = f.readlines()
 
-        audio_paths = [os.path.join(root_dir, x.split('|')[0][2:]) for x in metadata]
-        # text = [x.split('|')[1] for x in metadata]
-        speaker_id = [x.split('|')[2] for x in metadata]
+            audio_paths = [os.path.join(root_dir, x.split('|')[0][2:]) for x in metadata]
+            # text = [x.split('|')[1] for x in metadata]
+            speaker_id = [x.split('|')[2] for x in metadata]
 
-        metadata = list(zip(audio_paths, speaker_id))
+            processed_metadata = list(zip(audio_paths, speaker_id))
+        else:
+            sp_idxs = self.speaker_id_list
 
-        return metadata
+            with open(os.path.join(root_dir, meta_file), encoding='utf-8') as f:
+                metadata = f.readlines()
+
+            processed_metadata = []
+            for i in range(len(metadata)):
+                m = metadata[i].split('|')
+
+                if int(m[2].strip()) in sp_idxs:
+                    # tmp.append((os.path.join(root_dir, m[0][2:]), m[2]))
+                    processed_metadata.append((os.path.join(root_dir, m[0][2:]), str(sp_idxs.index(int(m[2].strip())))))
+
+        return processed_metadata
 
 class MelCollate():
     def __init__(self):
@@ -67,7 +81,7 @@ class MelCollate():
             mel = batch[i][0]
             mel_padded[i, :, :mel.size(1)] = mel
 
-        return mel_padded, [x[1] for x in batch]
+        return mel_padded.unsqueeze(1), [x[1] for x in batch]
 
 
 if __name__ == '__main__':
@@ -80,5 +94,5 @@ if __name__ == '__main__':
                             shuffle=True, num_workers=1, collate_fn=collate_fn)
 
     for i_batch, x in enumerate(dataloader):
-        print(x)
+        print(x[0].shape)
         break
